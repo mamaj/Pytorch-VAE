@@ -12,7 +12,6 @@ from utils import load_mnist, display
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
 class VAE(nn.Module):
     def __init__(self, latent_dim=2) -> None:
         super().__init__()
@@ -48,8 +47,8 @@ class VAE(nn.Module):
         
         
     def encode(self, x):
-        mean_logstd = self._encoder(x)
-        mu, log_std = mean_logstd[:, :self.d], mean_logstd[:, self.d:]
+        mu_logstd = self._encoder(x)
+        mu, log_std = mu_logstd[:, :self.d], mu_logstd[:, self.d:]
         return td.Independent(
             td.Normal(loc=mu, scale=torch.exp(log_std)),
             reinterpreted_batch_ndims=1
@@ -60,7 +59,7 @@ class VAE(nn.Module):
         logits = self._decoder(z).view(-1, 1, 28, 28)
         return td.Independent(
             td.Bernoulli(logits=logits),
-            reinterpreted_batch_ndims=2
+            reinterpreted_batch_ndims=3 
         )
         
     
@@ -74,32 +73,38 @@ class VAE(nn.Module):
         return z, x_hat
     
 
-mnist_train = load_mnist()
-train_loader = DataLoader(mnist_train, shuffle=True, batch_size=64)
+def main():
 
-vae = VAE(latent_dim=2)
-vae.to(DEVICE)
+    mnist_train = load_mnist()
+    train_loader = DataLoader(mnist_train, shuffle=True, batch_size=64)
 
-optim = torch.optim.Adam(lr=0.01, params=vae.parameters())
-epochs = 5
+    vae = VAE(latent_dim=2)
+    vae.to(DEVICE)
 
-train_loss = []
-for epoch in trange(epochs):
-    for x, _ in tqdm(train_loader):
-        x = x.to(DEVICE)
-        optim.zero_grad()
-        
-        posterior = vae.encode(x)
-        z = posterior.rsample()
-        
-        elbo = vae.decode(z).log_prob(x) - kl(posterior, vae.prior)
-        loss = -1 * elbo.mean()
-        
-        train_loss.append(loss.item())
-        loss.backward()
-        optim.step()
-        
-        
-_, x_hat = vae(x, deterministic=True)
-display(x)
-display(x_hat)
+    optim = torch.optim.Adam(lr=0.01, params=vae.parameters())
+    epochs = 5
+
+    train_loss = []
+    for epoch in trange(epochs):
+        for x, _ in tqdm(train_loader):
+            x = x.to(DEVICE)
+            optim.zero_grad()
+            
+            posterior = vae.encode(x)
+            z = posterior.rsample()
+            
+            elbo = vae.decode(z).log_prob(x) - kl(posterior, vae.prior)
+            loss = -1 * elbo.mean()
+            
+            train_loss.append(loss.item())
+            loss.backward()
+            optim.step()
+            
+            
+    _, x_hat = vae(x, deterministic=True)
+    display(x)
+    display(x_hat)
+    
+    
+if __name__ == '__main__':
+    main()
