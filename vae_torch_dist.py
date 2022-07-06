@@ -1,36 +1,37 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
 import torch.distributions as td
-from torch.distributions.kl import kl_divergence as kl
-import numpy as np
-from tqdm.notebook import tqdm, trange
 
-from utils import load_mnist, display
+class Reshape(nn.Module):
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args
 
-
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+    def forward(self, x):
+        return x.view((-1, *self.shape))
+    
+    
 class VAE(nn.Module):
-    def __init__(self, latent_dim=2) -> None:
+    def __init__(self, latent_dim=2):
         super().__init__()
-        
         self.d = latent_dim
-        self._encoder = nn.Sequential(
-            nn.Conv2d(1, 10, 5),
-            nn.ReLU(),
-            nn.Conv2d(10, 20, 5),
-            nn.ReLU(),
-            nn.MaxPool2d(5),
-            nn.Flatten(),
-            nn.Linear(320, latent_dim * 2) # mu, log_var
-        )
         
-        self._decoder = nn.Sequential(
-            nn.Linear(latent_dim, 100),
+        self._encoder = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=2),
             nn.ReLU(),
-            nn.Linear(100, 784),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(2304, latent_dim * 2) # mu, log_var
+        )
+
+        self._decoder = nn.Sequential(
+            nn.Linear(2, 64*6*6),
+            nn.ReLU(),
+            Reshape(64, 6, 6),
+            nn.ConvTranspose2d(in_channels=64, out_channels=32, kernel_size=3, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=32, out_channels=1, kernel_size=3, stride=2, output_padding=1),
         )
 
         self.prior = td.Independent(
@@ -72,39 +73,3 @@ class VAE(nn.Module):
             x_hat = self.decode(z).sample()
         return z, x_hat
     
-
-def main():
-
-    mnist_train = load_mnist()
-    train_loader = DataLoader(mnist_train, shuffle=True, batch_size=64)
-
-    vae = VAE(latent_dim=2)
-    vae.to(DEVICE)
-
-    optim = torch.optim.Adam(lr=0.01, params=vae.parameters())
-    epochs = 5
-
-    train_loss = []
-    for epoch in trange(epochs):
-        for x, _ in tqdm(train_loader):
-            x = x.to(DEVICE)
-            optim.zero_grad()
-            
-            posterior = vae.encode(x)
-            z = posterior.rsample()
-            
-            elbo = vae.decode(z).log_prob(x) - kl(posterior, vae.prior)
-            loss = -1 * elbo.mean()
-            
-            train_loss.append(loss.item())
-            loss.backward()
-            optim.step()
-            
-            
-    _, x_hat = vae(x, deterministic=True)
-    display(x)
-    display(x_hat)
-    
-    
-if __name__ == '__main__':
-    main()
