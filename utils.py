@@ -73,7 +73,7 @@ def plot_latent_images(model, n, digit_size=28, ax=None):
                 j * digit_size: (j + 1) * digit_size] = digit.detach().cpu().numpy()
 
     if ax is None:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(10, 10))
     im = ax.imshow(image, cmap='Greys_r')
     ax.axis('Off')
     return im
