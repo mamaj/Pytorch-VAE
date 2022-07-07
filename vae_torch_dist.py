@@ -22,11 +22,15 @@ class VAE(nn.Module):
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(2304, latent_dim * 2) # mu, log_var
+            nn.Linear(64*6*6, 512),
+            nn.ReLU(),
+            nn.Linear(512, latent_dim * 2) # mu, log_var
         )
 
         self._decoder = nn.Sequential(
-            nn.Linear(2, 64*6*6),
+            nn.Linear(2, 512),
+            nn.ReLU(),
+            nn.Linear(512, 64*6*6),
             nn.ReLU(),
             Reshape(64, 6, 6),
             nn.ConvTranspose2d(in_channels=64, out_channels=32, kernel_size=3, stride=2),
