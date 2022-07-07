@@ -3,14 +3,14 @@ from celluloid import Camera
 import torch
 from torch.distributions.kl import kl_divergence as kl
 from torch.utils.data import DataLoader
-from tqdm.notebook import tqdm, trange
+from tqdm import tqdm, trange
 
 from utils import display, load_mnist, plot_latent_images, visualize_latent
 from vae_torch_dist import VAE
 
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+animate = True
 
 def main():
     mnist_train, mnist_test = load_mnist()
@@ -20,17 +20,18 @@ def main():
     vae = VAE(latent_dim=2)
     vae.to(DEVICE)
 
-    optim = torch.optim.Adam(lr=0.001, params=vae.parameters())
-    epochs = 10
+    optim = torch.optim.Adam(lr=0.005, params=vae.parameters())
+    epochs = 50
 
     train_loss = []
     
     # setup animation
-    fig, ax = plt.subplots(figsize=(10, 10))
-    camera = Camera(fig)
+    if animate:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        camera = Camera(fig)
     
     for _ in trange(epochs):
-        for i, (x, _) in tqdm(enumerate(train_loader)):
+        for i, (x, _) in enumerate(tqdm(train_loader)):
             optim.zero_grad()
             x = x.to(DEVICE)
             
@@ -44,13 +45,15 @@ def main():
             optim.step()
             
             # capture animation frame
-            if i % 10 == 0:
+            if animate and i % 200 == 0:
                 plot_latent_images(vae, 20, ax=ax)
                 camera.snap()
     
     # save animation
-    animation = camera.animate()
-    animation.save('animation.gif')
+    if animate:
+        animation = camera.animate()
+        animation.save('animation2.gif')
+        animation.save('animation2.mp4')
     
     # display reconstruction
     z = vae.encode(x).sample()
