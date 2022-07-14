@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.distributions as td
+from torch.distributions.kl import kl_divergence as kl
 
 class Reshape(nn.Module):
     def __init__(self, *args):
@@ -61,12 +62,18 @@ class VAE(nn.Module):
     
     
     def decode(self, z):
-        logits = self._decoder(z).view(-1, 1, 28, 28)
+        """z: (n_samples, batch, latent_dim) """
+        logits = self._decoder(z).view(*z.shape[:-1], 1, 28, 28)
         return td.Independent(
             td.Bernoulli(logits=logits),
             reinterpreted_batch_ndims=3 
         )
         
+    def elbo(self, x, n_samples=1):
+        posterior = self.encode(x)
+        z = posterior.rsample((n_samples, ))   
+        elbo = self.decode(z).log_prob(x).mean(dim=0) - kl(posterior, self.prior)
+        return elbo
     
     def forward(self, x, deterministic=False):
         if deterministic:

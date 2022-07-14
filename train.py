@@ -10,10 +10,10 @@ from vae_torch_dist import VAE
 
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-animate = True
+animate = False
 
 def main():
-    mnist_train, mnist_test = load_mnist()
+    mnist_train, mnist_test = load_mnist(binary=True)
     train_loader = DataLoader(mnist_train, shuffle=True, batch_size=64)
     # test_loader = DataLoader(mnist_test, shuffle=False, batch_size=64)
     
@@ -21,7 +21,7 @@ def main():
     vae.to(DEVICE)
 
     optim = torch.optim.Adam(lr=0.005, params=vae.parameters())
-    epochs = 50
+    epochs = 5
 
     train_loss = []
     
@@ -35,10 +35,7 @@ def main():
             optim.zero_grad()
             x = x.to(DEVICE)
             
-            posterior = vae.encode(x)
-            z = posterior.rsample()   
-            elbo = vae.decode(z).log_prob(x) - kl(posterior, vae.prior)
-            loss = -1 * elbo.mean()
+            loss = -1 * vae.elbo(x, n_samples=1).mean()
             
             train_loss.append(loss.item())
             loss.backward()
