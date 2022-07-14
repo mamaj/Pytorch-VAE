@@ -17,25 +17,24 @@ def display(x):
     plt.imshow(x)
     
 
-def load_mnist():
+def load_mnist(binary=False):
+    transforms_list = transforms.Compose([
+        transforms.ToTensor(),
+        lambda x: (x > 0.5).to(x.dtype) if binary else x
+        ])
+    
     train_ds = datasets.MNIST(
         root=DATAPATH,
         train=True,
         download=True,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            lambda x: (x>0.5).to(x.dtype)
-            ])
+        transform=transforms_list
         )
     
     test_ds = datasets.MNIST(
         root=DATAPATH,
         train=False,
         download=True,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            lambda x: (x>0.5).to(x.dtype)
-            ])
+        transform=transforms_list
         )
     
     return train_ds, test_ds
